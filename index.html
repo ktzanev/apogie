@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+  <link rel="stylesheet" type="text/css" href="main.css">
+
+  <title>ApogIE</title>
+</head>
+<body>
+  <!-- ================ titre ================ -->
+  <div class="content-fluid text-light bg-dark px-3 py-1 mb-3">
+    <h1 class="fs-3 fw-light">Aide importation/exportation Apogée</h1>
+  </div>
+
+  <!-- ================ App ================ -->
+  <div id="app" class="container">
+    <!-- ================ stage 1 ================ -->
+    <div class="row mb-2 stage1" :class="stageClass">
+      <div class="col-lg-1 stage text-light">
+        <div>
+          1
+        </div>
+      </div>
+      <!-- ================ MODEL ================ -->
+      <div class="col-lg-11">
+        <div class="row">
+          <!-- ================ select file ================ -->
+          <div class="col-lg-6 alert mb-lg-0 dropin-area"
+              :class="{'file-over':draggModel}"
+              @drop.prevent="onDropModel"
+              @dragover.prevent="draggModel=true"
+              @dragleave.prevent="draggModel=false"
+              @drop="draggModel=false"
+              @click="$event.target.value=null"
+          >
+            <div>
+              <input type="file" class="d-none" id="model_file" accept=".txt" @change="onDropModel">
+              <label class="btn mb-1 import" for="model_file">Choisir le fichier exporté par Apogée</label>
+            </div>
+            <p>
+              Vous pouvez aussi glisser-déposer le fichier ici.
+            </p>
+          </div>
+          <!-- ================ infos & errors ================ -->
+          <div class="col-lg-6 pe-0">
+            <!-- ================ infos ================ -->
+            <div v-if="filenameModel" class="alert mb-0" :class="{'alert-warning':!validModel, 'alert-info':validModel}">
+              <div>Fichier : <b>{{ filenameModel }}</b></div>
+              <div v-if="info">
+                <div>Intitulé : <b>{{ info["intitulé"] }}</b></div>
+                <div>Code : <b>{{ info["code"] }}</b></div>
+                <div>Année : <b>{{ info["année"] }}</b></div>
+              </div>
+            </div>
+            <!-- ================ errors ================ -->
+            <div v-for="l in logModel" :class="logClass(l.type)" class="alert mt-2">
+              <span v-html="l.msg"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ================ stage 2 ================ -->
+    <div class="row mb-2 stage2" :class="stageClass">
+      <div class="col-lg-1 stage text-light">
+        <div>
+          2
+        </div>
+      </div>
+      <!-- ================ EXPORT CSV (for teachers) ================ -->
+      <div class="col-lg-11">
+        <div class="row alert alert-warning ps-1 mb-0">
+          <!-- ================ do it ================ -->
+          <div>
+            <button type="button" class="btn mb-1" @click.prevent="downloadZip">Télécharger <b>{{filebase}}.zip</b></button>
+            <p>
+              Ce fichier zip contient <a href="" @click.stop.prevent="hideTableModel=!hideTableModel">la liste des étudiants</a> sous <a href="" @click.stop.prevent="hideFiles=!hideFiles">differents formats</a> à fournir aux enseignants pour le remplissage des notes.
+            </p>
+          </div>
+          <!-- ================ info ================ -->
+          <div class="m-1 alert alert-info w-100" :class="{'d-none':hideFiles}">
+            Le fichier <code>{{filebase}}.zip</code> contient :
+            <div v-for="f in files">
+              <a href="" @click.prevent="f.download">{{f.name}}</a>
+            </div>
+          </div>
+          <!-- ================ table to export ================ -->
+          <table class="table table-striped mt-2" :class="{'d-none':hideTableModel}">
+            <thead>
+              <tr>
+                <th v-for="h in tableExport[0]">{{h}}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(line,i) in tableExport.slice(1)">
+                <td>{{line[0]}}</td>
+                <td>{{line[1]}}</td>
+                <td>{{line[2]}}</td>
+                <td>{{line[3]}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- ================ stage 3 ================ -->
+    <div class="row mb-2 stage3" :class="stageClass">
+      <div class="col-lg-1 stage text-light">
+        <div>
+          3
+        </div>
+      </div>
+      <!-- ================ IMPORT ================ -->
+      <div class="col-lg-11">
+        <div class="row">
+          <!-- ================ csv file select ================ -->
+          <div class="col-lg-6 alert mb-lg-0 dropin-area"
+              :class="{'file-over':draggCSV}"
+              @drop.prevent="onDropCSV"
+              @dragover.prevent="draggCSV=true"
+              @dragleave.prevent="draggCSV=false"
+              @drop="draggCSV=false"
+              @click="$event.target.value=null"
+          >
+            <div>
+              <input type="file" class="d-none" id="csv_file" accept=".csv" @change="onDropCSV">
+              <label class="btn mb-1 import" for="csv_file">Choisir le fichier avec les notes</label>
+              <button class="btn mb-1 import reset" @click.prevent="resetCSV">&#8634;</button>
+            </div>
+            <p>
+              Vous pouvez aussi glisser-déposer ici le fichier contenant les notes.
+            </p>
+          </div>
+          <!-- ================ info and errors in CSV ================ -->
+          <div class="col-lg-6 alert py-0 pe-0 info">
+            <div v-for="l in logCSV" :class="logClass(l.type)" class="alert mt-2">
+              <span v-html="l.msg"></span>
+            </div>
+            <div v-if="info && !approvedCSVname && logCSV.length == 0">
+              <div class="alert alert-danger">
+                <p>
+                  Le nom du fichier <code>{{ filenameCSV }}</code> ne contient pas le numéro du module <code>{{ info.code }}</code>.<br>
+                  Voulez-vous poursuivre ?
+                </p>
+                <div class="d-flex justify-content-evenly">
+                  <button type="button" class="btn btn-success w-25" @click.stop.prevent="approvedCSVname=true">Oui</button>
+                  <button type="button" class="btn btn-warning w-25" @click.stop.prevent="resetCSV">Non</button>
+                </div>
+              </div>
+            </div>
+            <div v-show="approvedCSVname">
+              <div v-if="numErrorsCSV > 0" class="alert alert-danger">
+                Ce fichier contient <a href="" @click.stop.prevent="showErrorsCSV=!showErrorsCSV">{{numErrorsCSV}} lignes non conformes</a>.
+                <div v-if="showErrorsCSV" class="state-num-error alert m-1">
+                  En rouge sont les lignes dont le numéro d'étudiant ne correspond pas à un étudiant sans note dans ce module.
+                </div>
+                <div v-if="showErrorsCSV" class="state-name-error alert m-1">
+                  En orange sont les lignes dont le nom et/ou le prénom de l'étudiant ne correspondent pas à son numéro.
+                </div>
+              </div>
+              <div v-if="numUnchangedCSV > 0" class="alert alert-secondary">
+                Ce fichier contient <a href="" @click.stop.prevent="showUnchangedCSV=!showUnchangedCSV">{{numUnchangedCSV}} lignes sans note</a> (qui sont ignorées).
+              </div>
+              <div v-if="numReadyCSV > 0" class="alert alert-success">
+                Ce fichier contient <a href="" @click.stop.prevent="showReadyCSV=!showReadyCSV">{{numReadyCSV}} notes à mettre à jour</a> dans Apogée.
+              </div>
+              <div v-if="numReadyCSV == 0" class="alert alert-danger">
+                Ce fichier ne contient pas de notes à mettre à jour dans Apogée.
+              </div>
+            </div>
+            <div v-show="!validCSV && approvedCSVname && !ignoreCSVerrors && numReadyCSV > 0">
+              <div class="alert alert-danger">
+                <p>
+                  Le fichier <code>{{ filenameCSV }}</code> contient {{numErrorsCSV}} lignes non valides.<br>
+                  Voulez-vous exporter <b>seulement</b> les {{numReadyCSV}} lignes valides ?
+                </p>
+                <div class="d-flex justify-content-evenly">
+                  <button type="button" class="btn btn-success w-25" @click.stop.prevent="ignoreCSVerrors=true">Oui</button>
+                  <button type="button" class="btn btn-warning w-25" @click.stop.prevent="resetCSV">Non</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ================ table with scores ================ -->
+          <table class="table mb-0" v-show="showReadyCSV||showErrorsCSV||showUnchangedCSV">
+            <thead>
+              <tr>
+                <th v-for="h in tableCSV[0]">{{h}}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(line,i) in tableCSV.slice(1)" :class="stateClass(stateLines[i+1])">
+                <td>{{line[0]}}</td>
+                <td>{{line[1]}}</td>
+                <td>{{line[2]}}</td>
+                <td>{{line[3]}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- ================ stage 4 ================ -->
+    <div class="row mb-2 stage4" :class="stageClass">
+      <div class="col-lg-1 stage text-light">
+        <div>
+          4
+        </div>
+      </div>
+      <!-- ================ EXPORT TXT (for Apogeé) ================ -->
+      <div class="col-lg-11">
+        <div class="row alert alert-warning ps-1 mb-0">
+          <!-- ================ do it ================ -->
+          <div>
+            <button type="button" class="btn mb-1" @click="DownloadUpdateModel">
+              Télécharger les notes pour <b>Apogée</b>.
+            </button>
+            <p>
+              Le fichier <code>{{filenameModelNew}}</code> contient les notes à importer dans Apogée.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.22/vue.min.js" integrity="sha512-mZdufoN3doBogc4Khz1dtrbImU+myqxWDezy9lHcTQ+L33OkBR4pBwu5acCs3ix5MKbZu9yNgVyR2VhFOwdySg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="main.js"></script>
+  <script src="lisezmoi.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" integrity="sha512-Qlv6VSKh1gDKGoJbnyA5RMXYcvnpIqhO++MhIM2fStMcGT9i2T//tSwYFlcyoRRDcDZ+TYHpH8azBBCyhpSeqw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js" integrity="sha512-xcHCGC5tQ0SHlRX8Anbz6oy/OullASJkEhb4gjkneVpGE3/QGYejf14CUO5n5q5paiHfRFTa9HKgByxzidw2Bw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</body>
+</html>

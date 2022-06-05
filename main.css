@@ -1,0 +1,159 @@
+a {
+  font-weight: bold;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+code {
+  font-weight: bold;
+}
+/* State of all CSV lines */
+.state-header {
+  background-color: black;
+}
+.state-ready {
+  background-color: #c3e6cb;
+}
+.state-name-error {
+  background-color: #ffdf7e;
+}
+.state-num-error {
+  background-color: #ed969e;
+}
+.state-unchanged {
+  background-color: #e2e3e5;
+}
+.state-hidden {
+  display: none;
+}
+/* drag and drop */
+.file-over {
+  outline: black dashed 1px;
+}
+/* Global stages : 1,2,3,4 */
+.stage {
+  display: flex!important;
+  justify-content: center!important;
+  align-items: center!important;
+  width: 2rem;
+  font-size: 1.4rem;
+  font-weight: bold;
+  border-radius: .7rem 0rem 0rem .7rem!important;
+}
+@media (max-width: 992px) {
+  .stage {
+    font-size: 1rem;
+    width: 100%;
+    border-radius: .7rem .7rem 0rem 0rem!important;
+  }
+}
+/* --- 1 --- */
+.stage1.waiting1 .stage,
+.stage1.waiting1 .btn.import 
+{
+  background-color: #ffc107;
+}
+.stage1.waiting1 .dropin-area {
+  color: #084298;
+  background-color: #cfe2ff;
+  border-color: #b6d4fe;
+}
+.stage1.error1 .stage,
+.stage1.error1 .btn.import
+{
+  color: #f8f9fa;
+  background-color: #dc3545;
+}
+.stage1.error1 .dropin-area {
+  color: #842029;
+  background-color: #f8d7da;
+  border-color: #f5c2c7;
+}
+.stage1.done1 .stage,
+.stage1.done1 .btn.import
+{
+  background-color: #7c757d;
+}
+.stage1.done1 .dropin-area {
+  color: #41464b;
+  background-color: #e2e3e5;
+  border-color: #d3d6d8;
+}
+/* --- 2 --- */
+.stage2 {
+  display: none;
+}
+.stage2.done1.waiting3 {
+  display: flex;
+}
+.stage2 .stage,
+.stage2 .btn
+{
+  color: #f8f9fa;
+  background-color: #198754;
+}
+.stage2.done1.done3 .stage,
+.stage2.done1.error3 .stage,
+.stage2.done1.done3 .btn,
+.stage2.done1.error3 .btn
+{
+  background-color: #7c757d;
+}
+/* --- 3 --- */
+.stage3 {
+  display: none;
+}
+.stage3.done1 {
+  display: flex;
+}
+
+.stage3.waiting3 .reset, 
+.stage3.waiting3 .info
+{
+  display: none;
+}
+.stage3.waiting3 .stage,
+.stage3.waiting3 .import
+{
+  background-color: #ffc107;
+}
+.stage3.waiting3 .dropin-area {
+  color: #084298;
+  background-color: #cfe2ff;
+  border-color: #b6d4fe;
+}
+.stage3.error3 .stage,
+.stage3.error3 .import
+{
+  color: #f8f9fa;
+  background-color: #dc3545;
+}
+.stage3.error3 .dropin-area {
+  color: #842029;
+  background-color: #f8d7da;
+  border-color: #f5c2c7;
+}
+.stage3.done3 .stage,
+.stage3.done3 .import
+{
+  background-color: #7c757d;
+}
+.stage3.done3 .dropin-area {
+  color: #41464b;
+  background-color: #e2e3e5;
+  border-color: #d3d6d8;
+}
+/* --- 4 --- */
+.stage4 {
+  display: none;
+}
+.stage4.done3 {
+  display: flex;
+}
+.stage4 .stage,
+.stage4 .btn
+{
+  color: #f8f9fa;
+  background-color: #198754;
+}
