@@ -6,4 +6,4 @@ Ce logiciel (page web) permet de convertir ces fichiers dans un format « lisib
 
 # Licence
 
-MIT
+[MIT](LICENCE)
