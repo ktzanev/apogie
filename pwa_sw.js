@@ -1,11 +1,13 @@
 // Choose a cache name
-const cacheName = 'apogie-v1';
+const cacheName = 'apogie-v2';
 // List the files to precache
 const precacheResources = [
   '/apogie/index.html',
   '/apogie/lisezmoi.js',
   '/apogie/main.css',
   '/apogie/main.js',
+  "/apogie/encoding-indexes.js",
+  "/apogie/encoding.js",
   'images/apogie72.png',
   'images/apogie96.png',
   'images/apogie128.png',
@@ -24,6 +26,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(cacheName).then((cache) => cache.addAll(precacheResources)));
 });
 
+// clear old caches when the service worker is activated
 self.addEventListener('activate', (event) => {
   console.log('Service worker activate event!');
   event.waitUntil(

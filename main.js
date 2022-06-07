@@ -385,8 +385,8 @@ var app = new Vue({
         log(app.logCSV, "error", err);
         return
       }
-      var table_txt = tableToCSV(app.tableModel, '\t');
-      downloadTextFile(app.header_txt + table_txt, app.filenameModelNew)
+      var table_txt = tableToCSV(app.tableModel, '\t', "\r\n");
+      downloadTextFile(app.header_txt + table_txt, app.filenameModelNew, "windows")
     },
   },
   created: function () {
@@ -451,8 +451,14 @@ function colReplace(l,i,from,to) {
 }
 
 // convert two dimensional table to a CSV string
-function tableToCSV(t, sep) {
-  return t.map(l=>l.join(sep)).join('\n')+'\n';
+function tableToCSV(t, sep, eol) {
+  if (sep === undefined) {
+    sep = ',';
+  }
+  if (eol === undefined) {
+    eol = '\n';
+  }
+  return t.map(l=>l.join(sep)).join(eol)+eol;
 }
 
 // return {text, filename} for a text file
@@ -653,10 +659,19 @@ function updateNote(tableModel, tableCSV, tableState) {
 }
 
 // initiate the dowload of a text file
-function downloadTextFile(text, filename) {
+function downloadTextFile(text, filename, encoding) {
+  var blobEncoding = "utf-8";
+  var blobMimeType = "text/plain;charset=utf-8";
+  // windows encoding is used by Apogée
+  if (encoding == "windows") {
+    const windowsEncoder = new CustomTextEncoder('windows-1252', {NONSTANDARD_allowLegacyEncoding: true})
+    text = windowsEncoder.encode(text);
+    blobEncoding = "windows-1252";
+    blobMimeType = "text/plain;charset=windows-1252"; 
+  }
+  
   if (window.Blob) {
-    // new style
-    var blob = new Blob([text], {encoding:"UTF-8",type:"text/plain;charset=UTF-8"});
+    var blob = new Blob([text], {encoding:blobEncoding,type:blobMimeType});
   }
   else if (window.BlobBuilder) {
     // old scool
