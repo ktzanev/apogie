@@ -658,18 +658,32 @@ function updateNote(tableModel, tableCSV, tableState) {
   return null;
 }
 
+// utility constant for UnicodeToWindows1252
+const windows1252 = '\x00\x01\x02\x03\x04\x05\x06\x07\b\t\n\v\f\r\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7F€\x81‚ƒ„…†‡ˆ‰Š‹Œ\x8DŽ\x8F\x90‘’“”•–—˜™š›œ\x9DžŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ';
+// convert Unicode to Windows-1252
+function UnicodeToWindows1252(s) {
+  var data = [];
+  for (let c of s) {
+    var d = windows1252.indexOf(c);
+    if (d < 0) {
+      d = 63; // '?'
+    }
+    data.push(d);
+  }
+  return new Uint8Array(data);
+}
+
 // initiate the dowload of a text file
 function downloadTextFile(text, filename, encoding) {
   var blobEncoding = "utf-8";
   var blobMimeType = "text/plain;charset=utf-8";
   // windows encoding is used by Apogée
   if (encoding == "windows") {
-    const windowsEncoder = new CustomTextEncoder('windows-1252', {NONSTANDARD_allowLegacyEncoding: true})
-    text = windowsEncoder.encode(text);
+    text = UnicodeToWindows1252(text);
     blobEncoding = "windows-1252";
     blobMimeType = "text/plain;charset=windows-1252"; 
   }
-  
+
   if (window.Blob) {
     var blob = new Blob([text], {encoding:blobEncoding,type:blobMimeType});
   }

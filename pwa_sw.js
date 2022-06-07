@@ -1,13 +1,11 @@
 // Choose a cache name
-const cacheName = 'apogie-v2';
+const cacheName = 'apogie-v3';
 // List the files to precache
 const precacheResources = [
   '/apogie/index.html',
   '/apogie/lisezmoi.js',
   '/apogie/main.css',
   '/apogie/main.js',
-  "/apogie/encoding-indexes.js",
-  "/apogie/encoding.js",
   'images/apogie72.png',
   'images/apogie96.png',
   'images/apogie128.png',
