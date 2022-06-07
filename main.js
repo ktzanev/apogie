@@ -20,12 +20,10 @@ var app = new Vue({
     // import Model data
     filenameModel     : '',
     txtModel          : '',
+    model             : null, // object containing TITRES, COLONNES, VALEURS et TYP_RES (inutile)
     logModel          : [],
-    splitModelAt      : 0,  // index where the table starts in the txtModel
-    header_txt        : '', // the par of txtModel before the table data
     info              : null, // the info data about the module
-    table_txt         : '', // the table text data extracted from the txtModel
-    tableModel        : [], // the table data (2 dimensional array) extracted from table_txt
+    tableModel        : [], // the table data (2 dimensional array) extracted from model["VALEURS"]
     tableExport       : [], // 4 column table extracted from the tableModel, with results header and empty scores
     validModel        : false, // true the model is present and valid
     // import CSV data
@@ -51,33 +49,26 @@ var app = new Vue({
     txtModel: function (val) {
       // clear log
       this.logModel.length = 0;
-      // set the splitModelAt
-      this.splitModelAt = splitModelAt(val);
-      if (this.splitModelAt < 0) {
-        log(this.logModel,"error","Manque ligne de séparation <code>XX-APO_VALEURS-XX</code>.")
+      // set the model object
+      this.model = splitModel(val);
+      if (!this.model["TITRES"] || !this.model["COLONNES"] || !this.model["VALEURS"]) {
+        log(this.logModel,"error","Le fichier n'est pas un fichier maquette d'Apogée.");
+        this.validModel = null;
+        return;
       }
-      this.splitModelAt++;
-      // set the header_txt
-      this.header_txt = val.slice(0, this.splitModelAt);
       // set info object about the model (recovered from the header line apoL_c0001)
       //    it is null if some error occured or the model is empty
-      this.info = this.getInfo(this.header_txt);
-      // set the table_txt
-      if (this.splitModelAt > 0 && this.info) {
-        this.table_txt = val.slice(this.splitModelAt);
-      } else {
-        this.table_txt = '';
-      }
+      this.info = this.getInfo(this.model["COLONNES"]);
       // set the tableModel
       if (this.info) {
-        this.tableModel = this.getTableModel(this.table_txt);
+        this.tableModel = this.getTableModel(this.model["VALEURS"]);
       } else {
         this.tableModel = [];
       }
       // set the tableExport
       this.tableExport = this.getTableExport(this.tableModel);
-      // set variadModel
-      this. validModel = this.txtModel.length > 0 && this.info && this.logModel.filter(l=>l.type == 'error').length == 0;
+      // set validModel
+      this. validModel = this.model && this.info && this.logModel.filter(l=>l.type == 'error').length == 0;
     },
     // triged when CSV is uploaded
     txtCSV: function (val) {
@@ -183,13 +174,13 @@ var app = new Vue({
     },
     // info object about the model (recovered from the header line apoL_c0001)
     // it is null if some error occured or the model is empty
-    getInfo(header_txt) {
+    getInfo(colonnes_txt) {
       // if no table
-      if (header_txt.length == 0) {
+      if (colonnes_txt.length == 0) {
         return null;
       }
       // apoL_c0001 ...
-      var info_module = getLineStartingWith(header_txt, "apoL_c0001");
+      var info_module = getLineStartingWith(colonnes_txt, "apoL_c0001");
       if (!info_module) {
         log(app.logModel,"error","Manque la ligne débutant avec <code>apoL_c0001</code>.")
         return null;
@@ -207,8 +198,8 @@ var app = new Vue({
       }
     },
     // return the tableModel (2 dimensional array) extracted from the txtModel
-    getTableModel(table_txt) {
-      var table = tsvToTable(table_txt);
+    getTableModel(valeurs_txt) {
+      var table = tsvToTable(valeurs_txt);
       var n = table.length;
       if (n == 0 || table[0].length < 4) {  // no table or bad header
         log(app.logModel,"error","Pas de tableau à exporter.")
@@ -243,13 +234,13 @@ var app = new Vue({
       // something to exoprt ?
       n = body.length;
       if (n  == 0) {
-        if (app.table_txt.length > 0) {
+        if (app.model["VALEURS"].length > 0) {
           log(app.logModel,"error","Pas de lignes à exporter.")
         }
         return [];
       }
 
-      if (app.table_txt.length > 0) {
+      if (app.model["VALEURS"].length > 0) {
         log(app.logModel,"info",`${n} lignes avec note sont à exporter.`);
       }
       return [resultsHeader,...body];
@@ -385,8 +376,11 @@ var app = new Vue({
         log(app.logCSV, "error", err);
         return
       }
-      var table_txt = tableToCSV(app.tableModel, '\t', "\r\n");
-      downloadTextFile(app.header_txt + table_txt, app.filenameModelNew, "windows")
+      app.model['TITRES'] = headerSetFilename(app.model['TITRES'], app.filenameModelNew);
+      app.model['TITRES'] = headerSetDate(app.model['TITRES']);
+      app.model['COLONNES'] = UpdateColonnes(app.model['COLONNES']);
+      var valeurs_txt = tableToCSV(app.tableModel, '\t', "\r\n");
+      downloadTextFile(header(app.model) + valeurs_txt, app.filenameModelNew, "windows")
     },
   },
   created: function () {
@@ -410,17 +404,51 @@ function log(logArray, type, msg) {
   })
 }
 
-// the index where starts the table data in the txtModel
-function splitModelAt (txtModel) {
-  if (txtModel.length == 0) {
-    return 0;
+// split model to parts
+function splitModel(txtModel) {
+  const parts = txtModel.trim().split(/XX-APO_(.*?)-XX/);
+  var model = {}
+  for (let i = 1; i < parts.length;) {
+    model[parts[i]] = parts[i+1];
+    i += 2;
   }
-  var n = txtModel.indexOf("XX-APO_VALEURS-XX");
-  if (n < 0) {
-    return n;
-  }
-  n = txtModel.indexOf("\n", n);
-  return n;
+  return model;
+}
+
+// reconstruct model parts : TITRES, COLONNES. 
+// Adds XX-APO_VALEURS-XX at the end.
+function header(model) {
+  var res = '';
+  res += 'XX-APO_TITRES-XX' + model['TITRES'];
+  res += 'XX-APO_COLONNES-XX' + model['COLONNES'];
+  res += 'XX-APO_VALEURS-XX\r\n';
+  return res;
+}
+
+// replace the filename in the header
+function headerSetFilename(titres_txt, filename) {
+  const regex = /apoC_Fichier_Exp\t.*$/m;
+  const subst = `apoC_Fichier_Exp\t` + filename;
+  return titres_txt.replace(regex, subst);
+}
+
+// replace the date/time in the header
+function headerSetDate(titres_txt) {
+  const d = new Date();
+  const strDate = [d.getDate().toString().padStart(2, '0'), (d.getMonth()+1).toString().padStart(2, '0'), d.getFullYear()].join('/');
+  const strTime = d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '0');
+  const regex = /Export Apogée du .*\d/m;
+  const subst = `Export Apogée du ${strDate} à ${strTime}`;
+  return titres_txt.replace(regex, subst);
+}
+
+// Not clear that this is very useful.
+// Looks like black magic to me!
+function UpdateColonnes(colonnes_txt) {
+  return colonnes_txt
+    .replace(/\t\tNom/, '\t1\tNom')
+    .replace(/\t\tPrénom/, '\t1\tPrénom')
+    .replace(/apoL_c0004\tAPO_COL_VAL_FIN(.*)$/m, `apoL_c0004\tAPO_COL_VAL_FIN`+'\t'.repeat(8) + `1\t`);
 }
 
 // return the first line starting with the given pattern
@@ -653,10 +681,12 @@ function updateNote(tableModel, tableCSV, tableState) {
     }
 
     tableModel[idx][4] = line[3];
+    tableModel[idx][5] = '20'; // the maximal possible score is 20
   }
   // no error
   return null;
 }
+
 
 // utility constant for UnicodeToWindows1252
 const windows1252 = '\x00\x01\x02\x03\x04\x05\x06\x07\b\t\n\v\f\r\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7F€\x81‚ƒ„…†‡ˆ‰Š‹Œ\x8DŽ\x8F\x90‘’“”•–—˜™š›œ\x9DžŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ';
