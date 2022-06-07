@@ -379,7 +379,7 @@ var app = new Vue({
       app.model['TITRES'] = headerSetFilename(app.model['TITRES'], app.filenameModelNew);
       app.model['TITRES'] = headerSetDate(app.model['TITRES']);
       app.model['COLONNES'] = UpdateColonnes(app.model['COLONNES']);
-      var valeurs_txt = tableToCSV(app.tableModel, '\t', "\r\n");
+      var valeurs_txt = tableToCSV(app.tableModel, 12, '\t', "\r\n");
       downloadTextFile(header(app.model) + valeurs_txt, app.filenameModelNew, "windows")
     },
   },
@@ -415,12 +415,26 @@ function splitModel(txtModel) {
   return model;
 }
 
+// normalize array to have n columns (fill with empty strings)
+function normalizeColumns(array,n) {
+  return array.concat(new Array(n).fill('')).slice(0,n);
+}
+
+// normalize all line of tsv string to have the same number of columns
+function normalizeLines(tsv,n) {
+  return tsv
+    .trim()
+    .split(/\r?\n/)
+    .map(l=>normalizeColumns(l.split('\t'),n).join('\t')) // normalize columns in each line
+    .join('\r\n');
+}
+
 // reconstruct model parts : TITRES, COLONNES. 
 // Adds XX-APO_VALEURS-XX at the end.
 function header(model) {
   var res = '';
-  res += 'XX-APO_TITRES-XX' + model['TITRES'];
-  res += 'XX-APO_COLONNES-XX' + model['COLONNES'];
+  res += 'XX-APO_TITRES-XX\r\n' + normalizeLines(model['TITRES'],12) + '\r\n\r\n';
+  res += 'XX-APO_COLONNES-XX\r\n' + normalizeLines(model['COLONNES'],12) + '\r\n\r\n';
   res += 'XX-APO_VALEURS-XX\r\n';
   return res;
 }
@@ -448,7 +462,7 @@ function UpdateColonnes(colonnes_txt) {
   return colonnes_txt
     .replace(/\t\tNom/, '\t1\tNom')
     .replace(/\t\tPrénom/, '\t1\tPrénom')
-    .replace(/apoL_c0004\tAPO_COL_VAL_FIN(.*)$/m, `apoL_c0004\tAPO_COL_VAL_FIN`+'\t'.repeat(8) + `1\t`);
+    .replace(/apoL_c0004\tAPO_COL_VAL_FIN(.*)$/m, `apoL_c0004\tAPO_COL_VAL_FIN`+'\t'.repeat(9) + `1\t`);
 }
 
 // return the first line starting with the given pattern
@@ -479,14 +493,8 @@ function colReplace(l,i,from,to) {
 }
 
 // convert two dimensional table to a CSV string
-function tableToCSV(t, sep, eol) {
-  if (sep === undefined) {
-    sep = ',';
-  }
-  if (eol === undefined) {
-    eol = '\n';
-  }
-  return t.map(l=>l.join(sep)).join(eol)+eol;
+function tableToCSV(t, numcols, sep, eol) {
+  return t.map(l=>normalizeColumns(l,numcols).join(sep)).join(eol)+eol;
 }
 
 // return {text, filename} for a text file
@@ -495,15 +503,15 @@ function tableToFile(t, type, basename) {
 
   switch (type) {
     case "fr.csv":
-      file.text = tableToCSV(app.tableExport.map(l=>colReplace(l,3,'.',',')),';');
+      file.text = tableToCSV(app.tableExport.map(l=>colReplace(l,3,'.',',')), 4, ';', '\n');
       file.name = basename + ".fr.csv";
       break;
     case "en.csv":
-      file.text = tableToCSV(app.tableExport.map(l=>colReplace(l,3,',','.')),',');
+      file.text = tableToCSV(app.tableExport.map(l=>colReplace(l,3,',','.')), 4, ',', '\n');
       file.name = basename + ".en.csv";
       break;
     case "txt":
-      file.text = tableToCSV(padTable(app.tableExport),'|');
+      file.text = tableToCSV(padTable(app.tableExport), 4, '|', '\n');
       file.name = basename + ".txt";
       break;
   }
@@ -577,9 +585,7 @@ function guessSeparator(s) {
 function lineToArray(l, sep) {
   var a = l.split(sep).map(c=>c.trim());
   a = [...a.slice(0,3),a.slice(3).join(',').replace(',','.')]
-  if (a.length < 4) {
-    a = [...a, ...new Array(4-a.length).fill('')]
-  }
+  a = normalizeColumns(a,4)
   return a;
 }
 
