@@ -382,16 +382,21 @@ var app = new Vue({
     },
     // the link in stage 4 (the final download)
     DownloadUpdateModel(e) {
-      var err = updateNote(app.tableModel, app.tableCSV, app.stateLines);
-      if (err) {
+      const tableModelUpdated = updateNote(app.tableModel, app.tableCSV, app.stateLines);
+      if (tableModelUpdated == null) {
         // we should never get here because all ready lines should be ok for updateNote
-        log(app.logCSV, "error", err);
+        log(app.logCSV, "error", "Problème lors de la mise à jour des notes :(");
         return
       }
+      if (tableModelUpdated.length == 0) {
+        // we should never get here because if nothing to update we can't initiate the download
+        log(app.logCSV, "error", "Pas de notes à exporter.");
+        return
+      }
+      const valeurs_txt = tableToCSV(tableModelUpdated, 12, '\t', "\r\n");
       app.model['TITRES'] = headerSetFilename(app.model['TITRES'], app.filenameModelNew);
       app.model['TITRES'] = headerSetDate(app.model['TITRES']);
       app.model['COLONNES'] = UpdateColonnes(app.model['COLONNES']);
-      var valeurs_txt = tableToCSV(app.tableModel, 12, '\t', "\r\n");
       downloadTextFile(header(app.model) + valeurs_txt, app.filenameModelNew, "windows")
     },
   },
@@ -651,6 +656,21 @@ function indexLine(table, num) {
 }
 
 
+// convert a table string like "N'OM Pré--nom Double" to a string like 'NOM PRE NOM DOUBLE'
+function normalizeName(s) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[- ]+/g,' ').trim().replace(/[^\w ]+/g, '').toUpperCase();
+}
+
+// compare week equality : a[1]~b[1] and a[2]~b[2]
+// a and b are 3 arrays of strings
+function samePerson(a, b) {
+  if (a.length < 3 || b.length < 3) {
+    return false
+  }
+
+  return normalizeName(a[1]+" "+a[2]) == normalizeName(b[1]+" "+b[2]);
+}
+
 // stateLines return return the corresponding state array
 // tableExport should contains only the lines without score
 function stateLines(tableExport, tableCSV) {
@@ -669,8 +689,8 @@ function stateLines(tableExport, tableCSV) {
       continue;
     }
     // if the line exists in the tableExport table
-    if (sameArray(tableExport[idx].slice(0,3),l.slice(0,3))) {
-      // if same "Note"
+    if ( samePerson(tableExport[idx],l) ) {
+      // if has "Note"
       if (l[3]) {
         stLines.push(state.Ready);
       } else {
@@ -688,28 +708,28 @@ function stateLines(tableExport, tableCSV) {
 // update notes in tableModel using the notes in tableCSV
 // all unused lines are returned
 function updateNote(tableModel, tableCSV, tableState) {
-  // lines in tableCSV that are not in tableModel
-  if (tableCSV.length == 0) {
-    return tableModel;
-  }
+  // remove lines with score
+  var tableNew = tableModel.filter(l=>!l[4]);
+  // update scores
   for (let i = 1; i < tableCSV.length; i++) {
     // update only ready lines
     if (tableState[i] != state.Ready) {
       continue;
     }
     const line = tableCSV[i];
-    const idx = indexLine(tableModel,line[0]);
+    const idx = indexLine(tableNew,line[0]);
     // if something goeas wrong, stop updating
     if (idx < 0) {
       // we should never be here
-      return "L'étudiant avec numéro" + line[0] + " n'existe pas dans la table ! L'exportation est interrompue.";
+      return null;
     }
-
-    tableModel[idx][4] = line[3];
-    tableModel[idx][5] = '20'; // the maximal possible score is 20
+    
+    tableNew[idx][4] = line[3];
+    tableNew[idx][5] = '20'; // the maximal possible score is 20
   }
-  // no error
-  return null;
+  // remove lines without score
+  tableNew = tableNew.filter(l=>l[4]);
+  return tableNew;
 }
 
 
