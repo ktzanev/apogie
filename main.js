@@ -22,6 +22,7 @@ var app = new Vue({
     txtModel          : '',
     model             : null, // object containing TITRES, COLONNES, VALEURS et TYP_RES (inutile)
     logModel          : [],
+    filepath          : "", // path to Apogée files
     info              : null, // the info data about the module
     tableModel        : [], // the table data (2 dimensional array) extracted from model["VALEURS"]
     tableExport       : [], // 4 column table extracted from the tableModel, with results header and empty scores
@@ -43,6 +44,7 @@ var app = new Vue({
     showReadyCSV      : false, // show the ready csv lines in the table
     showErrorsCSV     : false, // show the errors csv lines in the table
     showUnchangedCSV  : false, // show the unchanged csv lines in the table
+    showCopy          : false, // show the path to copy
   },
   watch: {
     // triged when model is uploaded
@@ -55,6 +57,12 @@ var app = new Vue({
         log(this.logModel,"error","Le fichier n'est pas un fichier maquette d'Apogée.");
         this.validModel = null;
         return;
+      }
+      // get the filepath
+      this.filepath = getValue(this.model["TITRES"], "apoC_Fichier_Exp")
+        .split('\\').slice(0,-1).join('\\');
+      if (this.filepath) {
+        this.filepath += '\\';
       }
       // set info object about the model (recovered from the header line apoL_c0001)
       //    it is null if some error occured or the model is empty
@@ -137,9 +145,13 @@ var app = new Vue({
     },
     filenameModelNew: function () {
       var name = this.filenameModel.replace(/\.txt$/i, "") || "Apogee";
-      name = name + "-" + this.filebase + ".txt";
+      name += "-" + (this.filebase).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\W+/g, '-') + ".txt";
       return name;
-    }
+    },
+    // set the full path (used to be copied in clipboard)
+    fullnameModelNew: function() {
+      return this.filepath + this.filenameModelNew;
+    },
   },
   methods: {
     // Will be fired by our '@drop.stop.prevent' or on file selection.
@@ -415,6 +427,22 @@ function splitModel(txtModel) {
   return model;
 }
 
+// return the first line starting with the given pattern
+// used to recover infos from TITRES and COLONNES parts
+function getLineStartingWith(str, pattern) {
+  const n = str.indexOf(pattern)
+  if (n < 0) {
+    return "";
+  }
+  return str.slice(n).split(/\r?\n/)[0]
+}
+
+// get a value from TITRES (a 2 column tsv)
+function getValue(titres_txt, pattern) {
+  const line = getLineStartingWith(titres_txt, pattern);
+  return line.slice(pattern.length).trim(); 
+}
+
 // normalize array to have n columns (fill with empty strings)
 function normalizeColumns(array,n) {
   return array.concat(new Array(n).fill('')).slice(0,n);
@@ -463,15 +491,6 @@ function UpdateColonnes(colonnes_txt) {
     .replace(/\t\tNom/, '\t1\tNom')
     .replace(/\t\tPrénom/, '\t1\tPrénom')
     .replace(/apoL_c0004\tAPO_COL_VAL_FIN(.*)$/m, `apoL_c0004\tAPO_COL_VAL_FIN`+'\t'.repeat(9) + `1\t`);
-}
-
-// return the first line starting with the given pattern
-function getLineStartingWith(str, pattern) {
-  const n = str.indexOf(pattern)
-  if (n < 0) {
-    return "";
-  }
-  return str.slice(n).split(/\r?\n/)[0]
 }
 
 // convert a TSV string to a table

@@ -225,12 +225,19 @@
         <div class="row alert alert-warning ps-1 mb-0">
           <!-- ================ do it ================ -->
           <div>
-            <button type="button" class="btn mb-1" @click="DownloadUpdateModel">
+            <button type="button" class="btn mb-1" @click="DownloadUpdateModel($event);showCopy=true">
               Télécharger les notes pour <b>Apogée</b>.
             </button>
             <p>
               Le fichier <code>{{filenameModelNew}}</code> contient les notes à importer dans Apogée.
             </p>
+            <div v-show="showCopy">
+              Vous devez sauvegarder ce fichier dans le dossier <code>{{filepath}}</code> :
+              <div class="input-group mb-3">
+                <span class="input-group-text" id="basic-addon1">⮩</span>
+                <input class="form-control" type="text" :value="fullnameModelNew" readonly="readonly" @focus="$event.target.select()">
+              </div>
+            </div> 
           </div>
         </div>
       </div>
