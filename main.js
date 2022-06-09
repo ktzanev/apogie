@@ -681,6 +681,11 @@ function stateLines(tableExport, tableCSV) {
   tableCSV = tableCSV.slice(1);
   // check all lines in tableCSV
   for (let l of tableCSV) {
+    // lines without score are ignored
+    if (!l[3].trim()) {
+      stLines.push(state.Unchanged);
+      continue;
+    }
     // get the corresponding line in the tableExport table
     const idx = indexLine(tableExport,l[0]);
     // if the line does not exist in the tableExport table
@@ -688,18 +693,14 @@ function stateLines(tableExport, tableCSV) {
       stLines.push(state.NumError);
       continue;
     }
+    
     // if the line exists in the tableExport table
     if ( samePerson(tableExport[idx],l) ) {
-      // if has "Note"
-      if (l[3]) {
-        stLines.push(state.Ready);
-      } else {
-        stLines.push(state.Unchanged);
-      }
-      continue;
+      stLines.push(state.Ready);
+    } else {
+      // if the line exists in the tableExport table but with a different name
+      stLines.push(state.NameError);
     }
-    // if the line exists in the tableExport table but with a different name
-    stLines.push(state.NameError);
   }
 
   return stLines;

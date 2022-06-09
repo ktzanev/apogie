@@ -13,7 +13,7 @@ Cette archive contient la liste des étudiants en trois formats :
             (le séparateur décimal est « . » et le séparateur des champs est « , »)
 - .txt : pour édition dans un éditeur de texte (le même que pour les .tex)
 
-ATTENTION : Il est primordial que le format du fichier, CSV avec 4 colonnes dans l'ordre "Num", "NOM", "PRENOM", "Note", soit préservé lors du retour au secrétariat.
+ATTENTION : Il est primordial que le format du fichier, CSV avec 4 colonnes dans l'ordre "Num", "NOM", "PRENOM", "Note", soit préservé lors du retour au secrétariat. Mais vous pouvez généré ce fichier de la manière qui vous convient, du moment que vous respecter l'ordre des 4 colonnes.
 
 ------------
 Libre office
@@ -27,7 +27,7 @@ C'est le tableur le plus adapté pour l'édition des .csv. Ça fonctionne aussi 
 ------------
 Google Drive
 ------------
-Calc de Google Drive peut être utilisé pour éditer le fichier .csv. Souvent une seule version .en.csv est reconnue par votre Drive. Si elle n'est pas reconnue, il faut essayer la version .fr.csv.
+Calc de Google Drive peut être utilisé pour éditer le fichier .csv. En principe, seule la version .en.csv est reconnue par votre Drive. Si elle n'est pas reconnue, il faut essayer la version .fr.csv.
 - Ouvrir la page web de Calc.
 - Glisser/déposer le fichier. Il sera automatiquement converti au format de Google.
 - Éditer le fichier.
