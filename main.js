@@ -739,7 +739,7 @@ const windows1252 = '\x00\x01\x02\x03\x04\x05\x06\x07\b\t\n\v\f\r\x0E\x0F\x10\x1
 // convert Unicode to Windows-1252
 function UnicodeToWindows1252(s) {
   var data = [];
-  for (let c of s) {
+  for (let c of s.normalize("NFC")) {
     var d = windows1252.indexOf(c);
     if (d < 0) {
       d = 63; // '?'
