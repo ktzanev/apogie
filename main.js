@@ -709,8 +709,8 @@ function stateLines(tableExport, tableCSV) {
 // update notes in tableModel using the notes in tableCSV
 // all unused lines are returned
 function updateNote(tableModel, tableCSV, tableState) {
-  // remove lines with score
-  var tableNew = tableModel.filter(l=>!l[4]);
+  // remove lines with score (keep the header)
+  var tableNew = tableModel.filter((l,i)=>i==0 || !l[4]);
   // update scores
   for (let i = 1; i < tableCSV.length; i++) {
     // update only ready lines
