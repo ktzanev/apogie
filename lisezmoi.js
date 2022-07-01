@@ -13,7 +13,7 @@ Cette archive contient la liste des étudiants en trois formats :
             (le séparateur décimal est « . » et le séparateur des champs est « , »)
 - .txt : pour édition dans un éditeur de texte (le même que pour les .tex)
 
-ATTENTION : Il est primordial que le format du fichier, CSV avec 4 colonnes dans l'ordre "Num", "NOM", "PRENOM", "Note", soit préservé lors du retour au secrétariat. Mais vous pouvez généré ce fichier de la manière qui vous convient, du moment que vous respecter l'ordre des 4 colonnes.
+ATTENTION : Il est primordial que le format du fichier, CSV avec 4 colonnes dans l'ordre "Num", "NOM", "PRENOM", "Note", soit préservé lors du retour au secrétariat. Mais vous pouvez générer ce fichier de la manière qui vous convient, du moment que vous respecter l'ordre des 4 colonnes.
 
 ------------
 Libre office

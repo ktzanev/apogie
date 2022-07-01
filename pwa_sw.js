@@ -1,5 +1,5 @@
 // Choose a cache name
-const cacheName = 'apogie-v9';
+const cacheName = 'apogie-v10';
 // List the files to precache
 const precacheResources = [
   '/apogie/index.html',
