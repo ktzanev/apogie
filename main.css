@@ -18,14 +18,17 @@ code {
 .state-ready {
   background-color: #c3e6cb;
 }
+.state-changed {
+  background-color: #fff3cd;
+}
+.state-unchanged {
+  background-color: #e2e3e5;
+}
 .state-name-error {
   background-color: #ffdf7e;
 }
 .state-num-error {
   background-color: #ed969e;
-}
-.state-unchanged {
-  background-color: #e2e3e5;
 }
 .state-hidden {
   display: none;

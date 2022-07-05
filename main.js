@@ -7,10 +7,11 @@ const resultsHeader = ["Num", "NOM", "PRENOM", "Note"];
 // the possible states of the new lines
 const state= Object.freeze({
   Header: 0, // the header line
-  Ready: 1, // line with ok first 3 columns and score in the 4th
-  NameError: 2, // line with wrong name(s) (2nd and 3d column)
-  NumError: 3, // line with a wrong num (1st column)
-  Unchanged: 4, // line with ok first 3 columns and no score in the 4th
+  Ready: 1, // line with ok first 3 columns, and score in the 4th (befor score was empty)
+  Changed: 2, // line with ok first 3 columns and a changed score in the 4th
+  Unchanged: 3, // line with ok first 3 columns and no score in the 4th, or same score as before
+  NameError: 4, // line with wrong name(s) (2nd and 3d column)
+  NumError: 5, // line with a wrong num (1st column)
 });
 
 
@@ -25,7 +26,8 @@ var app = new Vue({
     filepath          : "", // path to Apogée files
     info              : null, // the info data about the module
     tableModel        : [], // the table data (2 dimensional array) extracted from model["VALEURS"]
-    tableExport       : [], // 4 column table extracted from the tableModel, with results header and empty scores
+    tableExport       : [], // 4 column table extracted from the tableModel, with results header
+    clearScores       : true, // clear scores in the table
     validModel        : false, // true the model is present and valid
     // import CSV data
     filenameCSV       : '',
@@ -36,14 +38,16 @@ var app = new Vue({
     ignoreCSVerrors   : false, // allow export even if there are errors in the CSV
     // states of new lines
     state             : state, // all possible states of the csv lines
+    exportChanged     : false, // true if to export changed scores
     // interface variables
     draggModel         : false, // true if the model file is dragged
     draggCSV           : false, // true if the csv file is dragged
     hideTableModel    : true, // hide the model table
     hideFiles         : true, // hide the export csv files
-    showReadyCSV      : false, // show the ready csv lines in the table
-    showErrorsCSV     : false, // show the errors csv lines in the table
+    showReadyCSV      : false, // show the csv lines with new score in the table
+    showChangedCSV    : false, // show the csv lines with changed scores in the table
     showUnchangedCSV  : false, // show the unchanged csv lines in the table
+    showErrorsCSV     : false, // show the errors csv lines in the table
     showCopy          : false, // show the path to copy
   },
   watch: {
@@ -110,17 +114,32 @@ var app = new Vue({
       return this.logCSV.filter(l=>l.type == 'error').length == 0 && this.numErrorsCSV == 0 && this.numReadyCSV > 0;
     },
     // the state (header, ready, nameError, numError, unchanged) of all lines in the tableCSV
+    tableCSVbefore: function () {
+      return correspondingLines(this.tableExport, this.tableCSV);
+    },
     stateLines: function () {
       return stateLines(this.tableExport, this.tableCSV);
     },
     numReadyCSV: function () {
       return this.stateLines.filter(l => l == state.Ready).length;
     },
-    numErrorsCSV: function () {
-      return this.stateLines.filter(l => l == state.NameError || l == state.NumError).length;
+    numChangedCSV: function () {
+      return this.stateLines.filter(l => l == state.Changed).length;
     },
     numUnchangedCSV: function () {
       return this.stateLines.filter(l => l == state.Unchanged).length;
+    },
+    numNumErrorsCSV: function () {
+      return this.stateLines.filter(l => l == state.NumError).length;
+    },
+    numNameErrorsCSV: function () {
+      return this.stateLines.filter(l => l == state.NameError).length;
+    },
+    numErrorsCSV: function () {
+      return this.numNumErrorsCSV + this.numNameErrorsCSV;
+    },
+    numToExportCSV: function () {
+      return this.numReadyCSV + (this.exportChanged ? this.numChangedCSV : 0);
     },
     stageClass: function () {
       var stage = "";
@@ -144,8 +163,8 @@ var app = new Vue({
       return stage;
     },
     filenameModelNew: function () {
-      var name = this.filenameModel.replace(/\.txt$/i, "") || "Apogee";
-      name += "-" + (this.filebase).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\W+/g, '-') + ".txt";
+      var name = this.filenameModel.replace(/\.txt$/i, "").replace(/\W+/g, '-') || "Apogee";
+      name += "-" + (this.filebase).normalize("NFD").replace(/[\u0300-\u036f]/g, "").slice(0,8).replace(/\W+/g, '-') + ".txt";
       return name;
     },
     // set the full path (used to be copied in clipboard)
@@ -228,7 +247,6 @@ var app = new Vue({
     },
     // 4 column table extracted from the tableModel
     // the header line is replaced with ["Num", "NOM", "PRENOM", "Note"]
-    // keep only the lines withous score
     getTableExport: function(tableModel) {
       // remove the header line
       var body = tableModel.slice(1);
@@ -236,25 +254,15 @@ var app = new Vue({
       body = body.map(l=>l.filter((c,i)=> i<3 || i==4));
       // if some line has no 4th column, add an empty string
       body = body.map(l=>l.length < 4 ? l.concat("") : l);
-      // we keep only virgin lines
-      var n = body.length;
-      body = body.filter(l=> !l[3])
-      var removedLines = n - body.length
-      if (removedLines > 0) {
-        log(app.logModel,"warning",`${removedLines} lignes de la table contiennent déjà une note. Elles sont ignorées.`);
-      }
       // something to exoprt ?
-      n = body.length;
+      var n = body.length;
       if (n  == 0) {
         if (app.model["VALEURS"].length > 0) {
           log(app.logModel,"error","Pas de lignes à exporter.")
         }
         return [];
       }
-
-      if (app.model["VALEURS"].length > 0) {
-        log(app.logModel,"info",`${n} lignes avec note sont à exporter.`);
-      }
+      log(app.logModel,"info",`${n} lignes sont à exporter.`);
       return [resultsHeader,...body];
     },
     // Will be fired by our '@drop.stop.prevent' or on file selection.
@@ -343,34 +351,36 @@ var app = new Vue({
           return 'state-header';
         case state.Ready:
           return app.showReadyCSV ? 'state-ready' : 'state-hidden';
+        case state.Unchanged:
+          return app.showUnchangedCSV ? 'state-unchanged' : 'state-hidden';
+        case state.Changed:
+          return app.showChangedCSV ? 'state-changed' : 'state-hidden';
         case state.NameError:
           return app.showErrorsCSV ? 'state-name-error' : 'state-hidden';
         case state.NumError:
           return app.showErrorsCSV ? 'state-num-error' : 'state-hidden';
-        case state.Unchanged:
-          return app.showUnchangedCSV ? 'state-unchanged' : 'state-hidden';
         default:
           return '';
       }
     },
     // file links for stage 2 (the intermediate download)
     downloadFR(e) {
-      const file = tableToFile(app.tableExport, "fr.csv", app.filebase);
+      const file = tableToFile(app.tableExport, "fr.csv", app.filebase, app.clearScores);
       downloadTextFile(file.text, file.name);
     },
     downloadEN(e) {
-      const file = tableToFile(app.tableExport, "en.csv", app.filebase);
+      const file = tableToFile(app.tableExport, "en.csv", app.filebase, app.clearScores);
       downloadTextFile(file.text, file.name);
     },
     downloadTXT(e) {
-      const file = tableToFile(app.tableExport, "txt", app.filebase);
+      const file = tableToFile(app.tableExport, "txt", app.filebase, app.clearScores);
       downloadTextFile(file.text, file.name);
     },
     downloadZip(e) {
       var zip = new JSZip();
       // add the files to the zip
       for (let t of ["fr.csv", "en.csv", "txt"]) {
-        let file = tableToFile(app.tableExport, t, app.filebase);
+        let file = tableToFile(app.tableExport, t, app.filebase, app.clearScores);
         zip.file(file.name, file.text);
       }
       // add LISEZMOI.txt
@@ -379,6 +389,11 @@ var app = new Vue({
       zip.generateAsync({type:"blob"}).then(function(blob) {
         saveAs(blob, app.filebase + ".zip");
       });
+    },
+    downloadVisiblesCSV(e) {
+      const tableVisible = app.tableCSV.filter((l,i) => i == 0 || this.stateClass(app.stateLines[i]) != 'state-hidden');
+      const file = tableToFile(tableVisible, "fr.csv", app.filebase+".visible", false);
+      downloadTextFile(file.text, file.name);
     },
     // the link in stage 4 (the final download)
     DownloadUpdateModel(e) {
@@ -445,7 +460,7 @@ function getLineStartingWith(str, pattern) {
 // get a value from TITRES (a 2 column tsv)
 function getValue(titres_txt, pattern) {
   const line = getLineStartingWith(titres_txt, pattern);
-  return line.slice(pattern.length).trim(); 
+  return line.slice(pattern.length).trim();
 }
 
 // normalize array to have n columns (fill with empty strings)
@@ -462,7 +477,7 @@ function normalizeLines(tsv,n) {
     .join('\r\n');
 }
 
-// reconstruct model parts : TITRES, COLONNES. 
+// reconstruct model parts : TITRES, COLONNES.
 // Adds XX-APO_VALEURS-XX at the end.
 function header(model) {
   var res = '';
@@ -516,26 +531,36 @@ function colReplace(l,i,from,to) {
   return l;
 }
 
+// remove data from column
+function colClear(l,i) {
+  l[i] = '';
+  return l;
+}
+
 // convert two dimensional table to a CSV string
 function tableToCSV(t, numcols, sep, eol) {
   return t.map(l=>normalizeColumns(l,numcols).join(sep)).join(eol)+eol;
 }
 
 // return {text, filename} for a text file
-function tableToFile(t, type, basename) {
+function tableToFile(tableExport, type, basename, clearScores) {
   var file = {} // {text, filename}
-
+  var  tExp = tableExport
+  if (clearScores) {
+    // clear the score (last column)
+    tExp = tExp.map((l,i) => i==0 ? l : colClear(l,3))
+  }
   switch (type) {
     case "fr.csv":
-      file.text = tableToCSV(app.tableExport.map(l=>colReplace(l,3,'.',',')), 4, ';', '\n');
+      file.text = tableToCSV(tExp.map(l=>colReplace(l,3,'.',',')), 4, ';', '\n');
       file.name = basename + ".fr.csv";
       break;
     case "en.csv":
-      file.text = tableToCSV(app.tableExport.map(l=>colReplace(l,3,',','.')), 4, ',', '\n');
+      file.text = tableToCSV(tExp.map(l=>colReplace(l,3,',','.')), 4, ',', '\n');
       file.name = basename + ".en.csv";
       break;
     case "txt":
-      file.text = tableToCSV(padTable(app.tableExport), 4, '|', '\n');
+      file.text = tableToCSV(padTable(tExp), 4, '|', '\n');
       file.name = basename + ".txt";
       break;
   }
@@ -671,6 +696,25 @@ function samePerson(a, b) {
   return normalizeName(a[1]+" "+a[2]) == normalizeName(b[1]+" "+b[2]);
 }
 
+// correspondingLines returns a table of lines from tableExport that correspond to tableCSV
+function correspondingLines(tableExport, tableCSV) {
+  // create a new table, start with the header
+  var oldLines = [tableCSV[0]];
+  for (let l of tableCSV.slice(1)) {
+    var oldline;
+    const idx = indexLine(tableExport, l[0]);
+    if (idx >= 0) {
+      // Num, NOM, PRENOM, Note
+      oldline = tableExport[idx]
+    } else {
+      // if no line found, use an empty one
+      oldline = ['','','',''];
+    }  
+    oldLines.push(oldline);
+  }
+
+  return oldLines;
+}
 // stateLines return return the corresponding state array
 // tableExport should contains only the lines without score
 function stateLines(tableExport, tableCSV) {
@@ -693,10 +737,18 @@ function stateLines(tableExport, tableCSV) {
       stLines.push(state.NumError);
       continue;
     }
-    
+
     // if the line exists in the tableExport table
     if ( samePerson(tableExport[idx],l) ) {
-      stLines.push(state.Ready);
+      if (tableExport[idx][3] == l[3]) {
+        stLines.push(state.Unchanged);
+      } else {
+        if (tableExport[idx][3] == '') {
+          stLines.push(state.Ready); // if the score is empty, it is ready to be filled
+        } else {
+          stLines.push(state.Changed); // if the score is not empty, should it be changed
+        }
+      }
     } else {
       // if the line exists in the tableExport table but with a different name
       stLines.push(state.NameError);
@@ -709,28 +761,36 @@ function stateLines(tableExport, tableCSV) {
 // update notes in tableModel using the notes in tableCSV
 // all unused lines are returned
 function updateNote(tableModel, tableCSV, tableState) {
-  // remove lines with score (keep the header)
-  var tableNew = tableModel.filter((l,i)=>i==0 || !l[4]);
+  var tableNew = [];
   // update scores
   for (let i = 1; i < tableCSV.length; i++) {
     // update only ready lines
-    if (tableState[i] != state.Ready) {
+    if (tableState[i] != state.Ready && (tableState[i] != state.Changed || !app.exportChanged)) {
       continue;
     }
     const line = tableCSV[i];
-    const idx = indexLine(tableNew,line[0]);
+    const idx = indexLine(tableModel,line[0]);
     // if something goeas wrong, stop updating
     if (idx < 0) {
       // we should never be here
       return null;
     }
-    
-    tableNew[idx][4] = line[3];
-    tableNew[idx][5] = '20'; // the maximal possible score is 20
+    // new student (keep the first 3 columns)
+    var newline = tableModel[idx];
+    // update the score
+    newline[4] = line[3];
+    newline[5] = '20'; // the maximal possible score is 20
+    // add the new line to the table
+    tableNew.push(newline);
   }
   // remove lines without score
-  tableNew = tableNew.filter(l=>l[4]);
-  return tableNew;
+  tableNew = tableNew.filter(l=>!isNaN(parseFloat(l[4])));
+  // if nothing to update, return empty table
+  if (tableNew.length == 0) {
+    return [];
+  }
+  // keep the header and sort by NOM,Prenom
+  return [tableModel[0], ...tableNew.sort((a, b) => a[1].localeCompare(b[1]) || a[2].localeCompare(b[2]))];
 }
 
 
@@ -757,7 +817,7 @@ function downloadTextFile(text, filename, encoding) {
   if (encoding == "windows") {
     text = UnicodeToWindows1252(text);
     blobEncoding = "windows-1252";
-    blobMimeType = "text/plain;charset=windows-1252"; 
+    blobMimeType = "text/plain;charset=windows-1252";
   }
 
   if (window.Blob) {
